@@ -6,7 +6,8 @@
 
 const int HEATER_PIN = 12;
 const int MANUAL_HEATING_TIMER_INTERVAL = 1000 * 2;
-const int MANUAL_HEATING_TIME = 1000 * 60;
+const int MANUAL_HEATING_TIME = 1000 * 60 * 3;
+const int HEATING_STATUS_INTERVAL = 1000 * 60;
 const int PROGRESS_BAR_MIN = 0;
 const int PROGRESS_BAR_MAX = 100;
 const int PROGRESS_BAR_STEP =  PROGRESS_BAR_MAX / (MANUAL_HEATING_TIME / MANUAL_HEATING_TIMER_INTERVAL);
@@ -41,6 +42,7 @@ void setup()
   Serial.print("MANUAL_HEATING_TIME: ");
   Serial.println(MANUAL_HEATING_TIME);
   Blynk.begin(AUTH, NETWORK, PASS, IP, PORT);
+  while (Blynk.connect() == false) {}
   pinMode(HEATER_PIN, OUTPUT);
   initManualHeating();
   Blynk.syncVirtual(V1);
@@ -48,7 +50,7 @@ void setup()
   Blynk.syncVirtual(V21);
   Blynk.syncVirtual(V22);
   updateHeatingState();
-  
+  manualHeatingTimer.setInterval(HEATING_STATUS_INTERVAL, updateHeatingStatus);
   initialHeating = false;
 }
 
@@ -63,6 +65,10 @@ void loop()
 void initManualHeating() {
   manualHeatingTimerID = manualHeatingTimer.setInterval(MANUAL_HEATING_TIMER_INTERVAL, updateProgressBarStatus);
   stopManualHeating();
+}
+
+void updateHeatingStatus() {
+  Blynk.virtualWrite(V15, heatingState);
 }
 
 void updateHeatingState() {
@@ -112,7 +118,7 @@ void updateHeatingState() {
     heatingState = autoHeatingState;
   }
   if(previousHeatingState != heatingState || initialHeating) {
-    //Blynk.virtualWrite(V20, heatingState);
+    Blynk.virtualWrite(V20, heatingState);
   }
 }
 
