@@ -112,7 +112,7 @@ void updateHeatingState() {
     heatingState = autoHeatingState;
   }
   if(previousHeatingState != heatingState || initialHeating) {
-    Blynk.virtualWrite(V20, heatingState);
+    //Blynk.virtualWrite(V20, heatingState);
   }
 }
 
