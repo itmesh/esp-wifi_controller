@@ -2,9 +2,10 @@
 
 #include <ESP8266WiFi.h>
 #include <BlynkSimpleEsp8266.h>
+
 #include "Credentials.h"
 
-const int HEATER_PIN = 12;
+const int HEATER_PIN = 2;
 const int MANUAL_HEATING_TIMER_INTERVAL = 1000 * 2;
 const int MANUAL_HEATING_TIME = 1000 * 60 * 3;
 const int HEATING_STATUS_INTERVAL = 1000 * 60;
@@ -41,7 +42,7 @@ void setup()
   Serial.println(PROGRESS_BAR_STEP);
   Serial.print("MANUAL_HEATING_TIME: ");
   Serial.println(MANUAL_HEATING_TIME);
-  Blynk.begin(AUTH, NETWORK, PASS, IP, PORT);
+  Blynk.begin(AUTH, NETWORK, PASS);
   while (Blynk.connect() == false) {}
   pinMode(HEATER_PIN, OUTPUT);
   initManualHeating();
@@ -59,7 +60,6 @@ void loop()
   Blynk.run();
   manualHeatingTimer.run();
   updateHeatingState();
-  digitalWrite(HEATER_PIN, heatingState);
 }
 
 void initManualHeating() {
@@ -102,7 +102,7 @@ void updateHeatingState() {
       autoHeatingState = 1; 
     }
   }
-  /*  
+  /*
   Serial.print("heatingState: ");
   Serial.println(heatingState);
   Serial.print("manualHeatingState: ");
@@ -119,6 +119,11 @@ void updateHeatingState() {
   }
   if(previousHeatingState != heatingState || initialHeating) {
     Blynk.virtualWrite(V20, heatingState);
+    if(heatingState){
+      digitalWrite(HEATER_PIN, LOW); 
+    } else {
+      digitalWrite(HEATER_PIN, HIGH);
+    }
   }
 }
 
@@ -240,3 +245,65 @@ BLYNK_WRITE(V22) {
     Serial.println("Temperature updated");
   }
 }
+
+BLYNK_WRITE(V17) {
+  if(param.asInt() == 1) {
+    //checkUpdates();
+  }
+}
+
+/*
+void checkUpdates() {
+  String mac = getMAC();
+  String fwURL = String( fwUrlBase );
+  fwURL.concat( mac );
+  String fwVersionURL = fwURL;
+  fwVersionURL.concat( ".version" );
+
+  Serial.println( "Checking for firmware updates." );
+  Serial.print( "MAC address: " );
+  Serial.println( mac );
+  Serial.print( "Firmware version URL: " );
+  Serial.println( fwVersionURL );
+
+  HTTPClient httpClient;
+  httpClient.begin( fwVersionURL );
+  int httpCode = httpClient.GET();
+  if( httpCode == 200 ) {
+    String newFWVersion = httpClient.getString();
+
+    Serial.print( "Current firmware version: " );
+    Serial.println( FW_VERSION );
+    Serial.print( "Available firmware version: " );
+    Serial.println( newFWVersion );
+
+    int newVersion = newFWVersion.toInt();
+
+    if( newVersion > FW_VERSION ) {
+      Serial.println( "Preparing to update" );
+
+      String fwImageURL = fwURL;
+      fwImageURL.concat( ".bin" );
+      t_httpUpdate_return ret = ESPhttpUpdate.update( fwImageURL );
+
+      switch(ret) {
+        case HTTP_UPDATE_FAILED:
+          Serial.printf("HTTP_UPDATE_FAILD Error (%d): %s", ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
+          break;
+
+        case HTTP_UPDATE_NO_UPDATES:
+          Serial.println("HTTP_UPDATE_NO_UPDATES");
+          break;
+      }
+    }
+    else {
+      Serial.println( "Already on latest version" );
+    }
+  }
+  else {
+    Serial.print( "Firmware version check failed, got HTTP response code " );
+    Serial.println( httpCode );
+  }
+  httpClient.end();
+}
+*/
