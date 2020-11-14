@@ -1,14 +1,25 @@
 #define BLYNK_PRINT Serial
 
+#include <Arduino.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
 #include <ESP8266WiFi.h>
 #include <BlynkSimpleEsp8266.h>
+#include <ESP8266HTTPClient.h>
+#include <ESP8266httpUpdate.h>
 
 #include "Credentials.h"
 
-const int HEATER_PIN = 2;
-const int MANUAL_HEATING_TIMER_INTERVAL = 1000 * 2;
-const int MANUAL_HEATING_TIME = 1000 * 60 * 3;
-const int HEATING_STATUS_INTERVAL = 1000 * 60;
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+WidgetTerminal terminal(V23);
+WidgetLED dayModeLed(V25);
+WidgetLED nightModeLed(V24);
+
+const int LED_PIN = 2;
+const int HEATER_PIN = 14;
+const int MANUAL_HEATING_TIMER_INTERVAL = 1000 * 2; // 2 seconds
+const int MANUAL_HEATING_TIME = 1000 * 60 * 3; // 3 minutes
+const int HEATING_STATUS_INTERVAL = 1000 * 60; // 1 minute
 const int PROGRESS_BAR_MIN = 0;
 const int PROGRESS_BAR_MAX = 100;
 const int PROGRESS_BAR_STEP =  PROGRESS_BAR_MAX / (MANUAL_HEATING_TIME / MANUAL_HEATING_TIMER_INTERVAL);
@@ -27,6 +38,7 @@ int heatingState = 0;
 int autoHeatingState = 0;
 int manualHeatingState = 0;
 
+float displayingTemp = 0.0;
 float actualTemp = 0.0;
 float dayTemp = 0.0;
 float nightTemp = 0.0;
@@ -36,6 +48,10 @@ int manualHeatingTimerID;
 
 void setup()
 {
+  Wire.begin(D2, D1);
+  lcd.begin();
+  lcd.home();
+  
   Serial.begin(9600);
   Serial.println("Initializing...");
   Serial.print("PROGRESS_BAR_STEP: ");
@@ -87,6 +103,9 @@ void updateHeatingState() {
     } else {
       autoHeatingState = 1; 
     }
+    if(displayingTemp != dayTemp) {
+      displayTargetTemp(dayTemp);
+    }
   } else if(dayState == NIGHT) {
     /*
     Serial.println("Checking night temperature...");
@@ -100,6 +119,9 @@ void updateHeatingState() {
       autoHeatingState = 0; 
     } else {
       autoHeatingState = 1; 
+    }
+    if(displayingTemp != nightTemp) {
+      displayTargetTemp(nightTemp);
     }
   }
   /*
@@ -119,10 +141,13 @@ void updateHeatingState() {
   }
   if(previousHeatingState != heatingState || initialHeating) {
     Blynk.virtualWrite(V20, heatingState);
+    displayHeaterState(heatingState);
     if(heatingState){
-      digitalWrite(HEATER_PIN, LOW); 
-    } else {
+      digitalWrite(LED_PIN, LOW); 
       digitalWrite(HEATER_PIN, HIGH);
+    } else {
+      digitalWrite(LED_PIN, HIGH);
+      digitalWrite(HEATER_PIN, LOW);
     }
   }
 }
@@ -147,10 +172,6 @@ void timerCheck() {
   Serial.println("Timer check...");
 }
 
-void startManualHeating() {
-  
-}
-
 void stopManualHeating() {
   Serial.println("Stop manual heating");
   if(manualHeatingTimer.isEnabled(manualHeatingTimerID)){
@@ -160,6 +181,26 @@ void stopManualHeating() {
   manualHeating = false;
   currentBarProgress = PROGRESS_BAR_MAX;
   Blynk.virtualWrite(V11, PROGRESS_BAR_MIN);
+}
+
+void displayHeaterState(int state) { 
+  lcd.setCursor(0,0);
+  lcd.printf("S: %d", state);
+}
+
+void displayTargetTemp(float temp){
+  displayingTemp = temp;
+  lcd.setCursor(8,0);
+  lcd.printf("T: %.2f", temp);
+  lcd.print((char)223);
+  lcd.print(" ");
+}
+
+void displayRoomTemp(float temp) {
+  lcd.setCursor(0,1);
+  lcd.printf("Room T: %.2f", temp);
+  lcd.print((char)223);
+  lcd.print(" ");
 }
 
 // Heating button
@@ -207,9 +248,13 @@ BLYNK_WRITE(V10) {
   if(value == 1){
     Serial.println("Updating dayState: DAY");
     dayState = DAY;
+    dayModeLed.on();
+    nightModeLed.off();
   } else {
     Serial.println("Updating dayState: NIGHT");
     dayState = NIGHT;
+    dayModeLed.off();
+    nightModeLed.on();
   }
 }
 
@@ -218,6 +263,7 @@ BLYNK_WRITE(V1) {
   Serial.print("Actual temperature: ");
   Serial.print(temp);
   Serial.println(" Celcius");
+  displayRoomTemp(temp);
   if(MIN_TEMP_VALID <= temp && temp <= MAX_TEMP_VALID) {
     actualTemp = temp;
     Serial.println("Temperature updated");
@@ -248,62 +294,49 @@ BLYNK_WRITE(V22) {
 
 BLYNK_WRITE(V17) {
   if(param.asInt() == 1) {
-    //checkUpdates();
+    terminal.println("Updating is not implemented yet.");
+    terminal.flush();
+    /*
+    WiFiClient client;
+    ESPhttpUpdate.setLedPin(LED_BUILTIN, LOW);
+    t_httpUpdate_return ret = ESPhttpUpdate.update(client, "http://192.168.8.116:8080/file.bin");
+    switch (ret) {
+      case HTTP_UPDATE_FAILED:
+        Serial.printf("HTTP_UPDATE_FAILD Error (%d): %s\n", ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
+        break;
+      case HTTP_UPDATE_NO_UPDATES:
+        Serial.println("HTTP_UPDATE_NO_UPDATES");
+        break;
+      case HTTP_UPDATE_OK:
+        Serial.println("HTTP_UPDATE_OK");
+        break;
+    }
+    */
   }
 }
 
-/*
-void checkUpdates() {
-  String mac = getMAC();
-  String fwURL = String( fwUrlBase );
-  fwURL.concat( mac );
-  String fwVersionURL = fwURL;
-  fwVersionURL.concat( ".version" );
-
-  Serial.println( "Checking for firmware updates." );
-  Serial.print( "MAC address: " );
-  Serial.println( mac );
-  Serial.print( "Firmware version URL: " );
-  Serial.println( fwVersionURL );
-
-  HTTPClient httpClient;
-  httpClient.begin( fwVersionURL );
-  int httpCode = httpClient.GET();
-  if( httpCode == 200 ) {
-    String newFWVersion = httpClient.getString();
-
-    Serial.print( "Current firmware version: " );
-    Serial.println( FW_VERSION );
-    Serial.print( "Available firmware version: " );
-    Serial.println( newFWVersion );
-
-    int newVersion = newFWVersion.toInt();
-
-    if( newVersion > FW_VERSION ) {
-      Serial.println( "Preparing to update" );
-
-      String fwImageURL = fwURL;
-      fwImageURL.concat( ".bin" );
-      t_httpUpdate_return ret = ESPhttpUpdate.update( fwImageURL );
-
-      switch(ret) {
-        case HTTP_UPDATE_FAILED:
-          Serial.printf("HTTP_UPDATE_FAILD Error (%d): %s", ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
-          break;
-
-        case HTTP_UPDATE_NO_UPDATES:
-          Serial.println("HTTP_UPDATE_NO_UPDATES");
-          break;
-      }
+BLYNK_WRITE(V23)
+{
+  String cmd = param.asStr();
+  Serial.println(cmd);
+  if(cmd.indexOf("blynk") == 0){
+    if(cmd.length() < 7) {
+      terminal.println("Add some command.");
+      terminal.flush();
+    } else if(cmd.indexOf("clear") > 0){
+      terminal.clear();
+      terminal.flush();      
+    }else if(cmd.indexOf("update") > 0){
+      terminal.println("Updating is not implemented yet.");
+      terminal.flush();
+    } else {
+      terminal.print("Command '");
+      terminal.print(cmd.substring(6));
+      terminal.println("' not found.");
+      terminal.flush();
     }
-    else {
-      Serial.println( "Already on latest version" );
-    }
+  } else {
+    terminal.println("Command not found, start with 'blynk'");
+    terminal.flush();
   }
-  else {
-    Serial.print( "Firmware version check failed, got HTTP response code " );
-    Serial.println( httpCode );
-  }
-  httpClient.end();
 }
-*/
