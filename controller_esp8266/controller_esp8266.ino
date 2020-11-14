@@ -203,6 +203,20 @@ void displayRoomTemp(float temp) {
   lcd.print(" ");
 }
 
+void setDayState(int value) {
+  if(value == 1){
+    Serial.println("Updating dayState: DAY");
+    dayState = DAY;
+    dayModeLed.on();
+    nightModeLed.off();
+  } else {
+    Serial.println("Updating dayState: NIGHT");
+    dayState = NIGHT;
+    dayModeLed.off();
+    nightModeLed.on();
+  }
+}
+
 // Heating button
 BLYNK_WRITE(V20) {
   int value = param.asInt();
@@ -243,18 +257,25 @@ BLYNK_WRITE(V13) {
   }
 }
 
+// Setting day state from eventor
 BLYNK_WRITE(V10) {
   int value = param.asInt();
+  setDayState(value);
+}
+
+// Setting day state to night state from button
+BLYNK_WRITE(V14) {
+  int value = param.asInt();
   if(value == 1){
-    Serial.println("Updating dayState: DAY");
-    dayState = DAY;
-    dayModeLed.on();
-    nightModeLed.off();
-  } else {
-    Serial.println("Updating dayState: NIGHT");
-    dayState = NIGHT;
-    dayModeLed.off();
-    nightModeLed.on();
+    setDayState(0);
+  }
+}
+
+// Setting day state to day state from button
+BLYNK_WRITE(V15) {
+  int value = param.asInt();
+  if(value == 1){
+    setDayState(1);
   }
 }
 
