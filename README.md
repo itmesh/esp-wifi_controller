@@ -20,6 +20,13 @@ WiFi heater controller using esp8266, SRD-05VDC and BLYNK
   * Self-updating OTA firmware
 
 ## 3. BLYNK app screenshots
-<img src="/doc/image1.jpg" height="600">
+<img src="/doc/impage_app_1.jpg" height="600">
 </br>
-<img src="/doc/image2.jpg" height="600">
+<img src="/doc/impage_app_2.jpg" height="600">
+</br>
+<img src="/doc/impage_app_3.jpg" height="600">
+
+## 4. Device installation
+<img src="/doc/heater.jpg" height="600">
+</br>
+<img src="/doc/controller.jpg" height="600">
