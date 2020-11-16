@@ -190,7 +190,7 @@ void displayHeaterState(int state) {
 
 void displayTargetTemp(float temp){
   displayingTemp = temp;
-  lcd.setCursor(8,0);
+  lcd.setCursor(3,0);
   lcd.printf("T: %.2f", temp);
   lcd.print((char)223);
   lcd.print(" ");
